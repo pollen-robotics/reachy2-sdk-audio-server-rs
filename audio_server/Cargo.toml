@@ -1,0 +1,26 @@
+[package]
+name = "reachy2_sdk_audio_server_rs"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+
+[dependencies]
+env_logger = "0.11.6"
+glib = "0.20.7"
+gst = { version = "0.23.4", package = "gstreamer" }
+log = "0.4.25"
+tonic = "0.12.3"
+prost = "0.13.3"
+prost-types = "0.13.3"
+reachy-api = { path = "../reachy-api" }
+tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros"] }
+
+[lib]
+name = "gstreamer_utils"
+path = "src/gstreamer/mod.rs"
+
+[[bin]]
+name = "reachy2_sdk_audio_server_rs"
+path = "src/main.rs"

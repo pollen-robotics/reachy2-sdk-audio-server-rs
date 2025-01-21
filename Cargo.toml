@@ -1,18 +1,10 @@
-[package]
-name = "reachy2_sdk_audio_server_rs"
-version = "0.1.0"
+[workspace]
+members = ["audio_server", "reachy-api"]
+resolver = "2"
+
+[workspace.package]
+version = "1.0.0"
 edition = "2021"
-
-[dependencies]
-env_logger = "0.11.6"
-glib = "0.20.7"
-gst = { version = "0.23.4", package = "gstreamer" }
-log = "0.4.25"
-
-[lib]
-name = "gstreamer_utils"
-path = "src/gstreamer/mod.rs"
-
-[[bin]]
-name = "reachy2_sdk_audio_server_rs"
-path = "src/main.rs"
+authors = ["Pollen Robotics"]
+description = "Reachy 2 SDK Audio Server"
+documentation = "https://www.pollen-robotics.com"

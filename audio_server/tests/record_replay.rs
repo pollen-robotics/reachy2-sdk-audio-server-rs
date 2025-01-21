@@ -20,7 +20,6 @@ fn test_record_n_replay() {
 
     path.push("test_SDK_recording.ogg");
     let path_str = path.to_str().unwrap();
-    //let path = "/home/fabien/Music/test_SDK_recording.ogg";
 
     let mut recorder = GstRecorder::new(path_str);
 
