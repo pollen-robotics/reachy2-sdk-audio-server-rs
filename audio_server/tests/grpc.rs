@@ -28,7 +28,10 @@ async fn test_grpc() {
     let unit_file_name = "unit_test.ogg";
     let mut path = env::temp_dir();
     path.push("Reachy_SDK_audio_server");
+    std::fs::create_dir_all(&path).unwrap();
     path.push(unit_file_name);
+
+    println!("{}", path.to_str().unwrap());
 
     let _ = File::create(path.to_str().unwrap()).unwrap();
 

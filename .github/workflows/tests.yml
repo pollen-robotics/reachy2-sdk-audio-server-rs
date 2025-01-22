@@ -23,6 +23,9 @@ jobs:
       - run: rustup update stable && rustup default stable
       - run: cargo build --verbose
 
+      - name: create tmp directory
+        run: mkdir ~/tmp && export TMPDIR=~/tmp
+
       - name: Unit tests
         uses: BerniWittmann/background-server-action@v1
         with:
