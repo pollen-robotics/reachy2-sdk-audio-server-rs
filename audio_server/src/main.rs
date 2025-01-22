@@ -1,4 +1,4 @@
-use gst::prelude::*;
+use gst;
 use log::{debug, info, warn};
 use std::io::Write;
 use std::path::PathBuf;
@@ -83,7 +83,7 @@ impl SDKAudioService {
         tx
     }
 
-    pub fn list_audio_files(&self) -> Vec<String> {
+    pub fn list_audio_files(&self) -> Vec<AudioFile> {
         let mut files = Vec::new();
 
         if let Ok(entries) = fs::read_dir(&self.sounds_path) {
@@ -94,7 +94,9 @@ impl SDKAudioService {
                         if extension == "mp3" || extension == "wav" || extension == "ogg" {
                             if let Some(file_name) = path.file_name() {
                                 if let Some(file_name_str) = file_name.to_str() {
-                                    files.push(file_name_str.to_string());
+                                    files.push(AudioFile {
+                                        path: file_name_str.to_string(),
+                                    });
                                 }
                             }
                         }
@@ -125,7 +127,7 @@ impl AudioService for SDKAudioService {
         request: Request<tonic::Streaming<UploadAudioFileRequest>>,
     ) -> Result<Response<AudioAck>, Status> {
         debug!(
-            "Got a upalod_audio_file request from {:?}",
+            "Got a upload_audio_file request from {:?}",
             request.remote_addr()
         );
 
@@ -172,6 +174,36 @@ impl AudioService for SDKAudioService {
                     return Err(Status::internal(format!("Error receiving stream: {}", e)));
                 }
             }
+        }
+
+        Ok(Response::new(AudioAck {
+            success: Some(true),
+            error: None,
+        }))
+    }
+
+    async fn remove_audio_file(
+        &self,
+        request: Request<AudioFile>,
+    ) -> Result<Response<AudioAck>, Status> {
+        debug!(
+            "Got a remove_audio_file request from {:?}",
+            request.remote_addr()
+        );
+
+        let mut path = self.sounds_path.clone();
+        path.push(request.into_inner().path);
+
+        if path.exists() {
+            fs::remove_file(path)
+                .map_err(|e| Status::internal(format!("Failed to remove file: {}", e)))?;
+        } else {
+            return Ok(Response::new(AudioAck {
+                success: Some(false),
+                error: Some(Error {
+                    details: "File not found".to_string(),
+                }),
+            }));
         }
 
         Ok(Response::new(AudioAck {

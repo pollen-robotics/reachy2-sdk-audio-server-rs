@@ -7,12 +7,11 @@ use std::io::Read;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
-fn is_file_in_list(files: Vec<String>, file_name: &str) -> bool {
+fn is_file_in_list(files: Vec<AudioFile>, file_name: &str) -> bool {
     let mut file_found = false;
 
-    for file in files {
-        //println!("File: {}", file);
-        if file == file_name {
+    for audiofile in files {
+        if audiofile.path == file_name {
             file_found = true;
         }
     }
@@ -34,8 +33,6 @@ async fn test_grpc() {
     let _ = File::create(path.to_str().unwrap()).unwrap();
 
     let response = client.get_audio_files(()).await.unwrap();
-
-    //println!("RESPONSE={:?}", response);
 
     let files = response.into_inner().files;
 
@@ -149,4 +146,29 @@ async fn test_upload_file_before_name() {
     let ack = response.into_inner();
     assert!(!ack.success.unwrap());
     assert!(ack.error.is_some());
+}
+
+#[tokio::test]
+async fn test_remove_file() {
+    let mut client = AudioServiceClient::connect("http://[::1]:50063")
+        .await
+        .expect("Failed to connect to server. Make sure that server is running for this test!");
+
+    let audiofile = AudioFile {
+        path: "dummy".to_string(),
+    };
+
+    let response = client.remove_audio_file(audiofile).await.unwrap();
+    let ack = response.into_inner();
+    assert!(!ack.success.unwrap());
+    assert!(ack.error.is_some());
+
+    let audiofile = AudioFile {
+        path: "sample-3.ogg".to_string(),
+    };
+
+    let response = client.remove_audio_file(audiofile).await.unwrap();
+    let ack = response.into_inner();
+    assert!(ack.success.unwrap());
+    assert!(ack.error.is_none());
 }
