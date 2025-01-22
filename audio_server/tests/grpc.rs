@@ -31,8 +31,6 @@ async fn test_grpc() {
     std::fs::create_dir_all(&path).unwrap();
     path.push(unit_file_name);
 
-    println!("{}", path.to_str().unwrap());
-
     let _ = File::create(path.to_str().unwrap()).unwrap();
 
     let response = client.get_audio_files(()).await.unwrap();
@@ -166,8 +164,16 @@ async fn test_remove_file() {
     assert!(!ack.success.unwrap());
     assert!(ack.error.is_some());
 
+    let unit_file_name = "unit_test2.ogg";
+    let mut path = env::temp_dir();
+    path.push("Reachy_SDK_audio_server");
+    std::fs::create_dir_all(&path).unwrap();
+    path.push(unit_file_name);
+
+    File::create(path.to_str().unwrap()).unwrap();
+
     let audiofile = AudioFile {
-        path: "sample-3.ogg".to_string(),
+        path: unit_file_name.to_string(),
     };
 
     let response = client.remove_audio_file(audiofile).await.unwrap();
