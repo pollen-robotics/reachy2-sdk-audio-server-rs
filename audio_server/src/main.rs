@@ -1,9 +1,12 @@
 use gst::prelude::*;
 use log::{debug, info, warn};
+use std::io::Write;
 use std::path::PathBuf;
 use std::{env, fs};
 mod gstreamer;
+use std::fs::File;
 use tokio::sync::mpsc;
+use tokio_stream::StreamExt;
 
 use gstreamer::gst_player::GstPlayer;
 use gstreamer::gst_recorder::GstRecorder;
@@ -11,7 +14,10 @@ use gstreamer::gst_recorder::GstRecorder;
 use tonic::{transport::Server, Request, Response, Status};
 
 use reachy_api::component::audio::audio_service_server::{AudioService, AudioServiceServer};
-use reachy_api::component::audio::{AudioFile, AudioFiles};
+use reachy_api::component::audio::{
+    upload_audio_file_request, AudioAck, AudioFile, AudioFiles, UploadAudioFileRequest,
+};
+use reachy_api::error::Error;
 
 enum GstStatus {
     Play,
@@ -114,6 +120,66 @@ impl AudioService for SDKAudioService {
         Ok(Response::new(reply))
     }
 
+    async fn upload_audio_file(
+        &self,
+        request: Request<tonic::Streaming<UploadAudioFileRequest>>,
+    ) -> Result<Response<AudioAck>, Status> {
+        debug!(
+            "Got a upalod_audio_file request from {:?}",
+            request.remote_addr()
+        );
+
+        let mut stream = request.into_inner();
+        let mut file: Option<File> = None;
+
+        while let Some(audio_file_request) = stream.next().await {
+            match audio_file_request {
+                Ok(audio_file_request) => match audio_file_request.data {
+                    Some(upload_audio_file_request::Data::Info(info)) => {
+                        let mut path = self.sounds_path.clone();
+                        path.push(info.path);
+
+                        file = Some(File::create(path).map_err(|e| {
+                            Status::internal(format!("Failed to create file: {}", e))
+                        })?);
+                    }
+                    Some(upload_audio_file_request::Data::ChunkData(chunk_data)) => {
+                        if let Some(file) = file.as_mut() {
+                            file.write_all(&chunk_data).map_err(|e| {
+                                Status::internal(format!("Failed to write to file: {}", e))
+                            })?;
+                        } else {
+                            //return Err(Status::internal("File not initialized"));
+                            return Ok(Response::new(AudioAck {
+                                success: Some(false),
+                                error: Some(Error {
+                                    details: "File not initialized".to_string(),
+                                }),
+                            }));
+                        }
+                    }
+                    None => {
+                        //return Err(Status::invalid_argument("No data provided"));
+                        return Ok(Response::new(AudioAck {
+                            success: Some(false),
+                            error: Some(Error {
+                                details: "No data provided".to_string(),
+                            }),
+                        }));
+                    }
+                },
+                Err(e) => {
+                    return Err(Status::internal(format!("Error receiving stream: {}", e)));
+                }
+            }
+        }
+
+        Ok(Response::new(AudioAck {
+            success: Some(true),
+            error: None,
+        }))
+    }
+
     async fn play_audio_file(&self, request: Request<AudioFile>) -> Result<Response<()>, Status> {
         debug!(
             "Got a play_audio_file request from {:?}",
@@ -169,7 +235,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     gst::init().unwrap();
 
-    let addr = "[::1]:50051".parse().unwrap();
+    let addr = "[::1]:50063".parse().unwrap();
     let audioservice = SDKAudioService::new().await;
 
     info!("AudioService listening on {}", addr);

@@ -1,8 +1,11 @@
 use reachy_api::component::audio::audio_service_client::AudioServiceClient;
 use reachy_api::component::audio::AudioFile;
+use reachy_api::component::audio::{upload_audio_file_request, UploadAudioFileRequest};
 use std::env;
 use std::fs::File;
-use std::{thread, time::Duration};
+use std::io::Read;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 
 fn is_file_in_list(files: Vec<String>, file_name: &str) -> bool {
     let mut file_found = false;
@@ -19,7 +22,7 @@ fn is_file_in_list(files: Vec<String>, file_name: &str) -> bool {
 
 #[tokio::test]
 async fn test_grpc() {
-    let mut client = AudioServiceClient::connect("http://[::1]:50051")
+    let mut client = AudioServiceClient::connect("http://[::1]:50063")
         .await
         .expect("Failed to connect to server. Make sure that server is running for this test!");
 
@@ -47,35 +50,103 @@ async fn test_grpc() {
 }
 
 #[tokio::test]
-async fn test_playback_recording() {
-    let mut client = AudioServiceClient::connect("http://[::1]:50051")
+async fn test_upload_file() {
+    let mut client = AudioServiceClient::connect("http://[::1]:50063")
         .await
         .expect("Failed to connect to server. Make sure that server is running for this test!");
 
-    let unit_file_name = "test_SDK_recording.ogg";
-    let mut path = env::temp_dir();
-    path.push("Reachy_SDK_audio_server");
-    path.push(unit_file_name);
+    let mut file_path = env::current_dir().unwrap();
+    file_path.push("../data/");
+    file_path.push("sample-3.ogg");
+    println!("{}", file_path.to_str().unwrap());
 
-    let audiofile = AudioFile {
-        path: path.to_str().unwrap().to_string(),
-    };
+    let mut file = File::open(file_path).expect("Failed to open file");
 
-    client.record_audio_file(audiofile.clone()).await.unwrap();
+    let mut buffer = vec![0; 64];
+    let (tx, rx) = mpsc::channel(1);
 
-    println!("recording for 4 seconds");
-    thread::sleep(Duration::from_secs(4));
+    tx.send(UploadAudioFileRequest {
+        data: Some(upload_audio_file_request::Data::Info(AudioFile {
+            path: "sample-3.ogg".to_string(),
+        })),
+    })
+    .await
+    .expect("Failed to send file name");
 
-    println!("stopping recording");
-    client.stop_recording(()).await.unwrap();
+    tokio::spawn(async move {
+        loop {
+            let n = file.read(&mut buffer).expect("Failed to read file");
 
-    println!("playing 2 secs of recording");
-    client.play_audio_file(audiofile).await.unwrap();
+            if n == 0 {
+                break;
+            }
 
-    thread::sleep(Duration::from_secs(2));
+            let chunk = buffer[..n].to_vec();
+            tx.send(UploadAudioFileRequest {
+                data: Some(upload_audio_file_request::Data::ChunkData(chunk)),
+            })
+            .await
+            .expect("Failed to send chunk");
+        }
+    });
 
-    println!("stopping playback");
-    client.stop_playing(()).await.unwrap();
+    let stream = ReceiverStream::new(rx);
+    let response = client
+        .upload_audio_file(stream)
+        .await
+        .expect("Failed to upload file");
 
-    std::fs::remove_file(path).unwrap();
+    let ack = response.into_inner();
+    assert!(ack.success.unwrap());
+    assert!(ack.error.is_none());
+}
+
+#[tokio::test]
+async fn test_upload_file_no_data() {
+    let mut client = AudioServiceClient::connect("http://[::1]:50063")
+        .await
+        .expect("Failed to connect to server. Make sure that server is running for this test!");
+
+    let (tx, rx) = mpsc::channel(1);
+
+    tx.send(UploadAudioFileRequest { data: None })
+        .await
+        .expect("Failed to send file name");
+
+    let stream = ReceiverStream::new(rx);
+    let response = client
+        .upload_audio_file(stream)
+        .await
+        .expect("Failed to upload file");
+
+    let ack = response.into_inner();
+    assert!(!ack.success.unwrap());
+    assert!(ack.error.is_some());
+}
+
+#[tokio::test]
+async fn test_upload_file_before_name() {
+    let mut client = AudioServiceClient::connect("http://[::1]:50063")
+        .await
+        .expect("Failed to connect to server. Make sure that server is running for this test!");
+
+    let (tx, rx) = mpsc::channel(1);
+
+    let dummy_vec = vec![0; 64];
+
+    tx.send(UploadAudioFileRequest {
+        data: Some(upload_audio_file_request::Data::ChunkData(dummy_vec)),
+    })
+    .await
+    .expect("Failed to send file name");
+
+    let stream = ReceiverStream::new(rx);
+    let response = client
+        .upload_audio_file(stream)
+        .await
+        .expect("Failed to upload file");
+
+    let ack = response.into_inner();
+    assert!(!ack.success.unwrap());
+    assert!(ack.error.is_some());
 }

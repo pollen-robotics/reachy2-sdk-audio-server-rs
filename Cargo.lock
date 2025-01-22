@@ -996,6 +996,7 @@ dependencies = [
  "prost-types",
  "reachy-api",
  "tokio",
+ "tokio-stream",
  "tonic",
 ]
 
