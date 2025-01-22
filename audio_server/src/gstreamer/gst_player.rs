@@ -1,7 +1,9 @@
 // based on https://gitlab.freedesktop.org/gstreamer/gstreamer-rs/-/blob/main/examples/src/bin/decodebin.rs?ref_type=heads
 
+use crate::gst_utils::set_pipeline_state;
+use crate::gst_utils::setup_bus_watch;
 use gst::{element_warning, prelude::*};
-use log::{error, info};
+use log::error;
 
 pub struct GstPlayer {
     pipeline: gst::Pipeline,
@@ -82,53 +84,16 @@ impl GstPlayer {
             }
         });
 
-        GstPlayer::setup_bus_watch(&pipeline);
+        setup_bus_watch(&pipeline);
 
         Self { pipeline }
     }
 
-    fn setup_bus_watch(pipeline: &gst::Pipeline) {
-        let bus = pipeline.bus().unwrap();
-        let _bus_watch = bus
-            .add_watch(move |_bus, message| {
-                use gst::MessageView;
-                match message.view() {
-                    MessageView::Error(err) => {
-                        //Note: see example for providing a more explicit error message
-                        error!(
-                            "Error received from element {:?} {}",
-                            err.src().map(|s| s.path_string()),
-                            err.error()
-                        );
-                        error!("Debugging information: {:?}", err.debug());
-                        glib::ControlFlow::Break
-                    }
-                    MessageView::Eos(..) => {
-                        info!("Reached end of stream");
-                        glib::ControlFlow::Break
-                    }
-                    _ => glib::ControlFlow::Continue,
-                }
-            })
-            .unwrap();
-    }
-
     pub fn play(&mut self) {
-        let ret = self.pipeline.set_state(gst::State::Playing);
-        match ret {
-            Ok(gst::StateChangeSuccess::Success) | Ok(gst::StateChangeSuccess::Async) => {
-                // Pipeline state changed successfully
-            }
-            Ok(gst::StateChangeSuccess::NoPreroll) => {
-                error!("Failed to transition pipeline to PLAYING: No preroll data available");
-            }
-            Err(err) => {
-                error!("Failed to transition pipeline to PLAYING: {:?}", err);
-            }
-        }
+        set_pipeline_state(&self.pipeline, gst::State::Playing);
     }
 
     pub fn stop(&mut self) {
-        self.pipeline.set_state(gst::State::Null).unwrap();
+        set_pipeline_state(&self.pipeline, gst::State::Null);
     }
 }

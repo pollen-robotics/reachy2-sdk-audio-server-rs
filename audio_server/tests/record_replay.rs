@@ -1,5 +1,5 @@
-use gstreamer_utils::gst_player::GstPlayer;
-use gstreamer_utils::gst_recorder::GstRecorder;
+use gst_wrapper::gst_player::GstPlayer;
+use gst_wrapper::gst_recorder::GstRecorder;
 
 use std::{thread, time::Duration};
 

@@ -1,15 +1,14 @@
 use gst;
 use log::{debug, info, warn};
+use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use std::{env, fs};
-mod gstreamer;
-use std::fs::File;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 
-use gstreamer::gst_player::GstPlayer;
-use gstreamer::gst_recorder::GstRecorder;
+use gst_wrapper::gst_player::GstPlayer;
+use gst_wrapper::gst_recorder::GstRecorder;
 
 use tonic::{transport::Server, Request, Response, Status};
 
