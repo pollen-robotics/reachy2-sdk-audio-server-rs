@@ -10,17 +10,25 @@ env:
 jobs:
   build_and_test:
     name: Rust project - latest
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         toolchain:
           - stable
 
     steps:
+      - name: Install Gstreamer
+        run: sudo apt-get -y install libglib2.0-dev
+
       - uses: actions/checkout@v4
         with:
           submodules: "true"
           lfs: "true"
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
       - run: cargo build --verbose
-      - run: cargo test --test grpc --verbose
+
+      - name: Unit tests
+        uses: BerniWittmann/background-server-action@v1
+        with:
+          command: cargo test --test grpc --verbose
+          start: cargo run
