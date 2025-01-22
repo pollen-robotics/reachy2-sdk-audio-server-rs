@@ -1,7 +1,5 @@
 // based on https://gitlab.freedesktop.org/gstreamer/gstreamer-rs/-/blob/main/examples/src/bin/decodebin.rs?ref_type=heads
 
-use gst::Element;
-use gst::Pipeline;
 use gst::{element_warning, prelude::*};
 use log::{error, info};
 
@@ -13,12 +11,11 @@ impl GstPlayer {
     pub fn new(path: &str) -> Self {
         let pipeline = gst::Pipeline::new();
 
-        //let filesrc = GstPlayer::add_element_by_name(&pipeline, "filesrc");
         let filesrc = gst::ElementFactory::make("filesrc")
             .property("location", path)
             .build()
             .expect("failed to create filesrc element");
-        //let decodebin = GstPlayer::add_element_by_name(&pipeline, "decodebin");
+
         let decodebin = gst::ElementFactory::make("decodebin")
             .build()
             .expect("failed to create decodebin element");
@@ -89,16 +86,6 @@ impl GstPlayer {
 
         Self { pipeline }
     }
-
-    /*fn add_element_by_name(pipeline: &gst::Pipeline, name: &str) -> gst::Element {
-        let element = gst::ElementFactory::make(name)
-            .build()
-            .expect(format!("failed to build {name} element").as_str());
-
-        pipeline.add(&element).unwrap();
-
-        element
-    }*/
 
     fn setup_bus_watch(pipeline: &gst::Pipeline) {
         let bus = pipeline.bus().unwrap();

@@ -1,6 +1,4 @@
-use gst::Element;
-use gst::Pipeline;
-use gst::{element_warning, prelude::*};
+use gst::prelude::*;
 use log::{error, info};
 
 pub struct GstRecorder {
@@ -11,13 +9,13 @@ impl GstRecorder {
     pub fn new(path: &str) -> Self {
         let pipeline = gst::Pipeline::new();
 
-        let autoaudiosrc = GstRecorder::add_element_by_name(&pipeline, "autoaudiosrc");
-        let queue = GstRecorder::add_element_by_name(&pipeline, "queue");
-        let audioconvert = GstRecorder::add_element_by_name(&pipeline, "audioconvert");
-        let audioresample = GstRecorder::add_element_by_name(&pipeline, "audioresample");
-        let opusenc = GstRecorder::add_element_by_name(&pipeline, "opusenc");
-        let oggmux = GstRecorder::add_element_by_name(&pipeline, "oggmux");
-        let filesink = GstRecorder::add_element_by_name(&pipeline, "filesink");
+        let autoaudiosrc = GstRecorder::add_element_by_name("autoaudiosrc");
+        let queue = GstRecorder::add_element_by_name("queue");
+        let audioconvert = GstRecorder::add_element_by_name("audioconvert");
+        let audioresample = GstRecorder::add_element_by_name("audioresample");
+        let opusenc = GstRecorder::add_element_by_name("opusenc");
+        let oggmux = GstRecorder::add_element_by_name("oggmux");
+        let filesink = GstRecorder::add_element_by_name("filesink");
         filesink.set_property("location", path);
 
         let elements = &[
@@ -37,7 +35,7 @@ impl GstRecorder {
         Self { pipeline }
     }
 
-    fn add_element_by_name(pipeline: &gst::Pipeline, name: &str) -> gst::Element {
+    fn add_element_by_name(name: &str) -> gst::Element {
         let element = gst::ElementFactory::make(name)
             .build()
             .expect(format!("failed to build {name} element").as_str());

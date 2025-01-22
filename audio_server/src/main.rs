@@ -1,7 +1,7 @@
 use gst::prelude::*;
 use log::{debug, info, warn};
 use std::path::PathBuf;
-use std::{env, fs, path::Path, thread, time::Duration};
+use std::{env, fs};
 mod gstreamer;
 use tokio::sync::mpsc;
 
@@ -22,7 +22,6 @@ enum GstStatus {
 
 pub struct SDKAudioService {
     sounds_path: PathBuf,
-
     tx: mpsc::Sender<(GstStatus, Option<String>)>,
 }
 
