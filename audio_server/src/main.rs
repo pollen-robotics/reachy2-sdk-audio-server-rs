@@ -1,10 +1,11 @@
 use gst;
 use log::{debug, info, warn};
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::{env, fs};
 use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::StreamExt;
 
 use gst_wrapper::gst_player::GstPlayer;
@@ -14,7 +15,7 @@ use tonic::{transport::Server, Request, Response, Status};
 
 use reachy_api::component::audio::audio_service_server::{AudioService, AudioServiceServer};
 use reachy_api::component::audio::{
-    upload_audio_file_request, AudioAck, AudioFile, AudioFiles, UploadAudioFileRequest,
+    audio_file_request, AudioAck, AudioFile, AudioFileRequest, AudioFiles,
 };
 use reachy_api::error::Error;
 
@@ -123,7 +124,7 @@ impl AudioService for SDKAudioService {
 
     async fn upload_audio_file(
         &self,
-        request: Request<tonic::Streaming<UploadAudioFileRequest>>,
+        request: Request<tonic::Streaming<AudioFileRequest>>,
     ) -> Result<Response<AudioAck>, Status> {
         debug!(
             "Got a upload_audio_file request from {:?}",
@@ -133,10 +134,10 @@ impl AudioService for SDKAudioService {
         let mut stream = request.into_inner();
         let mut file: Option<File> = None;
 
-        while let Some(audio_file_request) = stream.next().await {
-            match audio_file_request {
-                Ok(audio_file_request) => match audio_file_request.data {
-                    Some(upload_audio_file_request::Data::Info(info)) => {
+        while let Some(audiofile_request) = stream.next().await {
+            match audiofile_request {
+                Ok(audiofile_request) => match audiofile_request.data {
+                    Some(audio_file_request::Data::Info(info)) => {
                         let mut path = self.sounds_path.clone();
                         path.push(info.path);
 
@@ -144,13 +145,12 @@ impl AudioService for SDKAudioService {
                             Status::internal(format!("Failed to create file: {}", e))
                         })?);
                     }
-                    Some(upload_audio_file_request::Data::ChunkData(chunk_data)) => {
+                    Some(audio_file_request::Data::ChunkData(chunk_data)) => {
                         if let Some(file) = file.as_mut() {
                             file.write_all(&chunk_data).map_err(|e| {
                                 Status::internal(format!("Failed to write to file: {}", e))
                             })?;
                         } else {
-                            //return Err(Status::internal("File not initialized"));
                             return Ok(Response::new(AudioAck {
                                 success: Some(false),
                                 error: Some(Error {
@@ -160,7 +160,6 @@ impl AudioService for SDKAudioService {
                         }
                     }
                     None => {
-                        //return Err(Status::invalid_argument("No data provided"));
                         return Ok(Response::new(AudioAck {
                             success: Some(false),
                             error: Some(Error {
@@ -179,6 +178,62 @@ impl AudioService for SDKAudioService {
             success: Some(true),
             error: None,
         }))
+    }
+
+    type DownloadAudioFileStream = ReceiverStream<Result<AudioFileRequest, Status>>;
+
+    async fn download_audio_file(
+        &self,
+        request: Request<AudioFile>,
+    ) -> Result<Response<Self::DownloadAudioFileStream>, Status> {
+        debug!(
+            "Got a download_audio_file request from {:?}",
+            request.remote_addr()
+        );
+
+        let name = request.into_inner().path;
+        let mut path = self.sounds_path.clone();
+        path.push(&name);
+
+        let mut file = File::open(&path)
+            .map_err(|e| Status::internal(format!("Failed to open file: {}", e)))?;
+
+        let mut buffer = vec![0; 64 * 1024]; //64KB buffer
+        let (tx, rx) = tokio::sync::mpsc::channel(1);
+
+        tx.send(Ok(AudioFileRequest {
+            data: Some(audio_file_request::Data::Info(AudioFile {
+                path: name.to_string(),
+            })),
+        }))
+        .await
+        .expect("Failed to send file name");
+
+        tokio::spawn(async move {
+            loop {
+                let n = file
+                    .read(&mut buffer)
+                    .map_err(|e| Status::internal(format!("Failed to read file: {}", e)))
+                    .unwrap_or(0);
+
+                if n == 0 {
+                    break;
+                }
+
+                let chunk = buffer[..n].to_vec();
+                if tx
+                    .send(Ok(AudioFileRequest {
+                        data: Some(audio_file_request::Data::ChunkData(chunk)),
+                    }))
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        });
+
+        Ok(Response::new(ReceiverStream::from(rx)))
     }
 
     async fn remove_audio_file(

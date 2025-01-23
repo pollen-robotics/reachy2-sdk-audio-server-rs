@@ -1,6 +1,6 @@
 use reachy_api::component::audio::audio_service_client::AudioServiceClient;
 use reachy_api::component::audio::AudioFile;
-use reachy_api::component::audio::{upload_audio_file_request, UploadAudioFileRequest};
+use reachy_api::component::audio::{audio_file_request, AudioFileRequest};
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -48,7 +48,7 @@ async fn test_grpc() {
 }
 
 #[tokio::test]
-async fn test_upload_file() {
+async fn test_upload_download_file() {
     let mut client = AudioServiceClient::connect("http://[::1]:50063")
         .await
         .expect("Failed to connect to server. Make sure that server is running for this test!");
@@ -58,13 +58,13 @@ async fn test_upload_file() {
     file_path.push("sample-3.ogg");
     println!("{}", file_path.to_str().unwrap());
 
-    let mut file = File::open(file_path).expect("Failed to open file");
+    let mut file = File::open(&file_path).expect("Failed to open file");
 
-    let mut buffer = vec![0; 64];
+    let mut buffer = vec![0; 64 * 1024];
     let (tx, rx) = mpsc::channel(1);
 
-    tx.send(UploadAudioFileRequest {
-        data: Some(upload_audio_file_request::Data::Info(AudioFile {
+    tx.send(AudioFileRequest {
+        data: Some(audio_file_request::Data::Info(AudioFile {
             path: "sample-3.ogg".to_string(),
         })),
     })
@@ -80,8 +80,8 @@ async fn test_upload_file() {
             }
 
             let chunk = buffer[..n].to_vec();
-            tx.send(UploadAudioFileRequest {
-                data: Some(upload_audio_file_request::Data::ChunkData(chunk)),
+            tx.send(AudioFileRequest {
+                data: Some(audio_file_request::Data::ChunkData(chunk)),
             })
             .await
             .expect("Failed to send chunk");
@@ -97,6 +97,40 @@ async fn test_upload_file() {
     let ack = response.into_inner();
     assert!(ack.success.unwrap());
     assert!(ack.error.is_none());
+
+    let mut file = File::open(file_path).expect("Failed to open file");
+    let mut original_data = Vec::new();
+    file.read_to_end(&mut original_data)
+        .expect("Failed to read file");
+
+    let response = client
+        .download_audio_file(AudioFile {
+            path: "sample-3.ogg".to_string(),
+        })
+        .await
+        .expect("Failed to send download request");
+
+    let mut stream = response.into_inner();
+    let mut received_data = Vec::new();
+    let mut file_name = None;
+
+    while let Some(audiofile_request) = stream.message().await.unwrap() {
+        match audiofile_request.data {
+            Some(audio_file_request::Data::Info(info)) => {
+                assert!(file_name.is_none());
+                file_name = Some(info.path);
+            }
+            Some(audio_file_request::Data::ChunkData(chunk_data)) => {
+                received_data.extend(chunk_data);
+            }
+            None => {
+                assert!(false);
+            }
+        }
+    }
+
+    assert_eq!(file_name, Some("sample-3.ogg".to_string()));
+    assert_eq!(received_data, original_data);
 }
 
 #[tokio::test]
@@ -107,7 +141,7 @@ async fn test_upload_file_no_data() {
 
     let (tx, rx) = mpsc::channel(1);
 
-    tx.send(UploadAudioFileRequest { data: None })
+    tx.send(AudioFileRequest { data: None })
         .await
         .expect("Failed to send file name");
 
@@ -132,8 +166,8 @@ async fn test_upload_file_before_name() {
 
     let dummy_vec = vec![0; 64];
 
-    tx.send(UploadAudioFileRequest {
-        data: Some(upload_audio_file_request::Data::ChunkData(dummy_vec)),
+    tx.send(AudioFileRequest {
+        data: Some(audio_file_request::Data::ChunkData(dummy_vec)),
     })
     .await
     .expect("Failed to send file name");
