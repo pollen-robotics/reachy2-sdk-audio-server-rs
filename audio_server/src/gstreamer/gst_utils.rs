@@ -5,7 +5,7 @@ use log::{error, info};
 pub fn add_element_by_name(name: &str) -> gst::Element {
     let element = gst::ElementFactory::make(name)
         .build()
-        .expect(format!("failed to build {name} element").as_str());
+        .unwrap_or_else(|_| panic!("failed to build {name} element"));
     element
 }
 

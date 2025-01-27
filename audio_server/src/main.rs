@@ -1,4 +1,3 @@
-use gst;
 use log::{debug, info, warn};
 use std::fs::File;
 use std::io::{Read, Write};
@@ -52,7 +51,7 @@ impl SDKAudioService {
                 match status {
                     GstStatus::Play => {
                         if let Some(path) = path {
-                            let mut gst_player = GstPlayer::new(&path.as_str());
+                            let mut gst_player = GstPlayer::new(path.as_str());
                             gst_player.play();
                             player = Some(gst_player);
                         } else {
@@ -61,14 +60,13 @@ impl SDKAudioService {
                     }
                     GstStatus::Record => {
                         if let Some(path) = path {
-                            let mut gst_recorder = GstRecorder::new(&path.as_str());
+                            let mut gst_recorder = GstRecorder::new(path.as_str());
                             if let Some(duration) = duration {
                                 gst_recorder.record(Duration::from_secs_f32(duration));
                             } else {
                                 gst_recorder.record(Duration::from_secs_f32(60f32));
                                 warn!("Recording time unset. Recording one minute.");
                             }
-                            //gst_recorder.record();
                             recorder = Some(gst_recorder);
                         } else {
                             warn!("No path provided to record audio file");
@@ -95,17 +93,15 @@ impl SDKAudioService {
 
         if let Ok(entries) = fs::read_dir(&self.sounds_path) {
             for entry in entries {
-                if let Ok(entry) = entry {
-                    let path = entry.path();
-                    if let Some(extension) = path.extension() {
-                        if extension == "mp3" || extension == "wav" || extension == "ogg" {
-                            if let Some(file_name) = path.file_name() {
-                                if let Some(file_name_str) = file_name.to_str() {
-                                    files.push(AudioFile {
-                                        path: file_name_str.to_string(),
-                                        duration: None,
-                                    });
-                                }
+                let path = entry.unwrap().path();
+                if let Some(extension) = path.extension() {
+                    if extension == "mp3" || extension == "wav" || extension == "ogg" {
+                        if let Some(file_name) = path.file_name() {
+                            if let Some(file_name_str) = file_name.to_str() {
+                                files.push(AudioFile {
+                                    path: file_name_str.to_string(),
+                                    duration: None,
+                                });
                             }
                         }
                     }
