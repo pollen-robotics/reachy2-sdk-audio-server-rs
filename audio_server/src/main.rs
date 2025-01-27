@@ -3,6 +3,7 @@ use log::{debug, info, warn};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::time::Duration;
 use std::{env, fs};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -28,7 +29,7 @@ enum GstStatus {
 
 pub struct SDKAudioService {
     sounds_path: PathBuf,
-    tx: mpsc::Sender<(GstStatus, Option<String>)>,
+    tx: mpsc::Sender<(GstStatus, Option<String>, Option<f32>)>,
 }
 
 impl SDKAudioService {
@@ -41,13 +42,13 @@ impl SDKAudioService {
         Self { sounds_path, tx }
     }
 
-    async fn spawn_sync_thread() -> mpsc::Sender<(GstStatus, Option<String>)> {
+    async fn spawn_sync_thread() -> mpsc::Sender<(GstStatus, Option<String>, Option<f32>)> {
         let mut player: Option<GstPlayer> = None;
         let mut recorder: Option<GstRecorder> = None;
-        let (tx, mut rx) = mpsc::channel::<(GstStatus, Option<String>)>(2);
+        let (tx, mut rx) = mpsc::channel::<(GstStatus, Option<String>, Option<f32>)>(2);
         tokio::spawn(async move {
             while let Some(message) = rx.recv().await {
-                let (status, path) = message;
+                let (status, path, duration) = message;
                 match status {
                     GstStatus::Play => {
                         if let Some(path) = path {
@@ -61,7 +62,13 @@ impl SDKAudioService {
                     GstStatus::Record => {
                         if let Some(path) = path {
                             let mut gst_recorder = GstRecorder::new(&path.as_str());
-                            gst_recorder.record();
+                            if let Some(duration) = duration {
+                                gst_recorder.record(Duration::from_secs_f32(duration));
+                            } else {
+                                gst_recorder.record(Duration::from_secs_f32(60f32));
+                                warn!("Recording time unset. Recording one minute.");
+                            }
+                            //gst_recorder.record();
                             recorder = Some(gst_recorder);
                         } else {
                             warn!("No path provided to record audio file");
@@ -96,6 +103,7 @@ impl SDKAudioService {
                                 if let Some(file_name_str) = file_name.to_str() {
                                     files.push(AudioFile {
                                         path: file_name_str.to_string(),
+                                        duration: None,
                                     });
                                 }
                             }
@@ -204,6 +212,7 @@ impl AudioService for SDKAudioService {
         tx.send(Ok(AudioFileRequest {
             data: Some(audio_file_request::Data::Info(AudioFile {
                 path: name.to_string(),
+                duration: None,
             })),
         }))
         .await
@@ -276,7 +285,11 @@ impl AudioService for SDKAudioService {
 
         let _ = self
             .tx
-            .send((GstStatus::Play, Some(path.to_str().unwrap().to_string())))
+            .send((
+                GstStatus::Play,
+                Some(path.to_str().unwrap().to_string()),
+                None,
+            ))
             .await;
         Ok(Response::new(()))
     }
@@ -286,7 +299,7 @@ impl AudioService for SDKAudioService {
             "Got a stop_audio_file request from {:?}",
             request.remote_addr()
         );
-        let _ = self.tx.send((GstStatus::StopPlaying, None)).await;
+        let _ = self.tx.send((GstStatus::StopPlaying, None, None)).await;
         Ok(Response::new(()))
     }
 
@@ -295,12 +308,17 @@ impl AudioService for SDKAudioService {
             "Got a record_audio_file request from {:?}",
             request.remote_addr()
         );
+        let audiofile = request.into_inner();
         let mut path = self.sounds_path.clone();
-        path.push(request.into_inner().path);
+        path.push(audiofile.path);
 
         let _ = self
             .tx
-            .send((GstStatus::Record, Some(path.to_str().unwrap().to_string())))
+            .send((
+                GstStatus::Record,
+                Some(path.to_str().unwrap().to_string()),
+                audiofile.duration,
+            ))
             .await;
         Ok(Response::new(()))
     }
@@ -310,7 +328,7 @@ impl AudioService for SDKAudioService {
             "Got a stop_audio_file request from {:?}",
             request.remote_addr()
         );
-        let _ = self.tx.send((GstStatus::StopRecording, None)).await;
+        let _ = self.tx.send((GstStatus::StopRecording, None, None)).await;
         Ok(Response::new(()))
     }
 }

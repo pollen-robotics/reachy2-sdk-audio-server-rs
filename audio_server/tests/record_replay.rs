@@ -25,7 +25,7 @@ fn test_record_n_replay() {
 
     println!("recording for 4 seconds");
 
-    recorder.record();
+    recorder.record(Duration::from_secs(10));
 
     thread::sleep(Duration::from_secs(4));
 
