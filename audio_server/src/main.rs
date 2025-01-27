@@ -48,6 +48,7 @@ impl SDKAudioService {
     pub async fn new() -> Self {
         let mut sounds_path = env::temp_dir();
         sounds_path.push("Reachy_SDK_audio_server");
+        std::fs::create_dir_all(&sounds_path).unwrap();
 
         let tx = SDKAudioService::spawn_sync_thread().await;
 
