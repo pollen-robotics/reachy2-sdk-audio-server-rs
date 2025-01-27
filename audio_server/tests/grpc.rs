@@ -66,6 +66,7 @@ async fn test_upload_download_file() {
     tx.send(AudioFileRequest {
         data: Some(audio_file_request::Data::Info(AudioFile {
             path: "sample-3.ogg".to_string(),
+            duration: None,
         })),
     })
     .await
@@ -106,6 +107,7 @@ async fn test_upload_download_file() {
     let response = client
         .download_audio_file(AudioFile {
             path: "sample-3.ogg".to_string(),
+            duration: None,
         })
         .await
         .expect("Failed to send download request");
@@ -191,6 +193,7 @@ async fn test_remove_file() {
 
     let audiofile = AudioFile {
         path: "dummy".to_string(),
+        duration: None,
     };
 
     let response = client.remove_audio_file(audiofile).await.unwrap();
@@ -208,6 +211,7 @@ async fn test_remove_file() {
 
     let audiofile = AudioFile {
         path: unit_file_name.to_string(),
+        duration: None,
     };
 
     let response = client.remove_audio_file(audiofile).await.unwrap();

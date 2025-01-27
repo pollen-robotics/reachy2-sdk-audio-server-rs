@@ -17,6 +17,7 @@ async fn test_playback_recording() {
 
     let audiofile = AudioFile {
         path: path.to_str().unwrap().to_string(),
+        duration: Some(10.0f32),
     };
 
     client.record_audio_file(audiofile.clone()).await.unwrap();

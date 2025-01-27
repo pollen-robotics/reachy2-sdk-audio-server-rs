@@ -13,11 +13,24 @@ use gst_wrapper::gst_recorder::GstRecorder;
 
 use tonic::{transport::Server, Request, Response, Status};
 
+use clap::Parser;
 use reachy_api::component::audio::audio_service_server::{AudioService, AudioServiceServer};
 use reachy_api::component::audio::{
     audio_file_request, AudioAck, AudioFile, AudioFileRequest, AudioFiles,
 };
 use reachy_api::error::Error;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// grpc server ip
+    #[arg(long, default_value = "[::1]")]
+    grpc_host: String,
+
+    /// grpc server port
+    #[arg(long, default_value_t = 50063)]
+    grpc_port: u16,
+}
 
 enum GstStatus {
     Play,
@@ -335,14 +348,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     gst::init().unwrap();
 
-    let addr = "[::1]:50063".parse().unwrap();
+    let args = Args::parse();
+    let grpc_address = format!("{}:{}", args.grpc_host, args.grpc_port)
+        .parse()
+        .unwrap();
+
+    //let addr = "[::1]:50063".parse().unwrap();
     let audioservice = SDKAudioService::new().await;
 
-    info!("AudioService listening on {}", addr);
+    info!("AudioService listening on {}", grpc_address);
 
     Server::builder()
         .add_service(AudioServiceServer::new(audioservice))
-        .serve(addr)
+        .serve(grpc_address)
         .await?;
 
     info!("Exit SDK Audio server");

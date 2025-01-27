@@ -17,6 +17,7 @@ prost-types = "0.13.3"
 reachy-api = { path = "../reachy-api" }
 tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros"] }
 tokio-stream = "0.1.17"
+clap = { version = "4.5.18", features = ["derive"] }
 
 [lib]
 name = "gst_wrapper"
