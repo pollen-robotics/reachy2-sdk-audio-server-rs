@@ -30,4 +30,5 @@ jobs:
         uses: BerniWittmann/background-server-action@v1
         with:
           command: cargo test --test grpc --verbose
-          start: cargo run -- --grpc-host [::1]
+          start: cargo run
+          wait-on: "http://0.0.0.0:50063"
