@@ -21,7 +21,7 @@ fn is_file_in_list(files: Vec<AudioFile>, file_name: &str) -> bool {
 
 #[tokio::test]
 async fn test_grpc() {
-    let mut client = AudioServiceClient::connect("http://0.0.0.0:50063")
+    let mut client = AudioServiceClient::connect("http://[::1]:50063")
         .await
         .expect("Failed to connect to server. Make sure that server is running for this test!");
 
@@ -49,7 +49,7 @@ async fn test_grpc() {
 
 #[tokio::test]
 async fn test_upload_download_file() {
-    let mut client = AudioServiceClient::connect("http://0.0.0.0:50063")
+    let mut client = AudioServiceClient::connect("http://[::1]:50063")
         .await
         .expect("Failed to connect to server. Make sure that server is running for this test!");
 
@@ -137,7 +137,7 @@ async fn test_upload_download_file() {
 
 #[tokio::test]
 async fn test_upload_file_no_data() {
-    let mut client = AudioServiceClient::connect("http://0.0.0.0:50063")
+    let mut client = AudioServiceClient::connect("http://[::1]:50063")
         .await
         .expect("Failed to connect to server. Make sure that server is running for this test!");
 
@@ -160,7 +160,7 @@ async fn test_upload_file_no_data() {
 
 #[tokio::test]
 async fn test_upload_file_before_name() {
-    let mut client = AudioServiceClient::connect("http://0.0.0.0:50063")
+    let mut client = AudioServiceClient::connect("http://[::1]:50063")
         .await
         .expect("Failed to connect to server. Make sure that server is running for this test!");
 
@@ -187,7 +187,7 @@ async fn test_upload_file_before_name() {
 
 #[tokio::test]
 async fn test_remove_file() {
-    let mut client = AudioServiceClient::connect("http://0.0.0.0:50063")
+    let mut client = AudioServiceClient::connect("http://[::1]:50063")
         .await
         .expect("Failed to connect to server. Make sure that server is running for this test!");
 

@@ -24,7 +24,7 @@ use reachy_api::error::Error;
 #[command(version, about, long_about = None)]
 struct Args {
     /// grpc server ip
-    #[arg(long, default_value = "0.0.0.0")]
+    #[arg(long, default_value = "[::1]")]
     grpc_host: String,
 
     /// grpc server port
