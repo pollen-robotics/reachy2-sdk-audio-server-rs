@@ -30,5 +30,4 @@ jobs:
         uses: BerniWittmann/background-server-action@v1
         with:
           command: cargo test --test grpc --verbose
-          start: cargo run
-          wait-on: "http://0.0.0.0:50063"
+          start: timeout --signal=SIGTERM 30s bash -c 'until lsof -i :50063; do sleep 1; done' && cargo run
