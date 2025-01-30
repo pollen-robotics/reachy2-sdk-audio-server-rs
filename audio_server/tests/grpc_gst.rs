@@ -5,7 +5,7 @@ use std::{thread, time::Duration};
 
 #[tokio::test]
 async fn test_playback_recording() {
-    let mut client = AudioServiceClient::connect("http://0.0.0.0:50063")
+    let mut client = AudioServiceClient::connect("http://[::1]:50063")
         .await
         .expect("Failed to connect to server. Make sure that server is running for this test!");
 

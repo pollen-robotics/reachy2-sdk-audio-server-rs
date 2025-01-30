@@ -30,4 +30,4 @@ jobs:
         uses: BerniWittmann/background-server-action@v1
         with:
           command: cargo test --test grpc --verbose
-          start: cargo run
+          start: cargo run -- --grpc-host [::1]
